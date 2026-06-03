@@ -39,7 +39,7 @@ export function createOverlayWindow() {
     const overlayUrl = new URL('src/overlay/overlay.html', process.env.VITE_DEV_SERVER_URL).href
     overlayWindow.loadURL(overlayUrl)
   } else {
-    overlayWindow.loadFile(path.join(__dirname, '../dist/overlay.html'))
+    overlayWindow.loadFile(path.join(__dirname, '../dist/src/overlay/overlay.html'))
   }
 
   overlayWindow.setIgnoreMouseEvents(false)

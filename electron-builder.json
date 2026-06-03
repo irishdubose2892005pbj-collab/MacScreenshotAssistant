@@ -15,7 +15,12 @@
         "arch": ["x64", "arm64"]
       }
     ],
-    "category": "public.app-category.utilities"
+    "category": "public.app-category.utilities",
+    "extendInfo": {
+      "NSCameraUsageDescription": "此应用需要屏幕录制权限来截取屏幕内容。",
+      "NSMicrophoneUsageDescription": "此应用不需要麦克风权限。",
+      "NSAppleEventsUsageDescription": "此应用需要监听全局快捷键来触发截图功能。"
+    }
   },
   "dmg": {
     "title": "Mac Screenshot Assistant",

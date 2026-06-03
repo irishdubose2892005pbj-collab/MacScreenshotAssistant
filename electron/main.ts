@@ -29,15 +29,11 @@ function createMainWindow() {
   })
 }
 
-async function checkScreenCapturePermission(): Promise<boolean> {
+function checkScreenCapturePermission(): boolean {
   if (process.platform !== 'darwin') return true
 
   const status = systemPreferences.getMediaAccessStatus('screen')
-  if (status === 'granted') return true
-
-  // 请求权限（macOS 10.15+）
-  const granted = await systemPreferences.askForMediaAccess('screen')
-  return granted
+  return status === 'granted'
 }
 
 async function showPermissionDialog() {
@@ -57,13 +53,18 @@ async function showPermissionDialog() {
 }
 
 async function startScreenshot() {
-  const hasPermission = await checkScreenCapturePermission()
+  const hasPermission = checkScreenCapturePermission()
   if (!hasPermission) {
     showPermissionDialog()
     return
   }
 
-  createOverlayWindow()
+  try {
+    createOverlayWindow()
+  } catch (error) {
+    console.error('打开遮罩窗口失败:', error)
+    dialog.showErrorBox('截图失败', '无法打开截图遮罩层，请检查应用权限或重启应用。')
+  }
 }
 
 app.whenReady().then(() => {
