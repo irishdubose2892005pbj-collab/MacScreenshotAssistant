@@ -47,7 +47,7 @@ export function getCurrentDisplay() {
 
 /**
  * 使用 macOS screencapture 命令截取指定区域
- * 
+ *
  * 注意：坐标需要转换为物理像素（考虑 Retina scaleFactor）
  */
 export async function captureRegion(rect: ScreenshotRect): Promise<string> {
@@ -80,8 +80,19 @@ export async function captureRegion(rect: ScreenshotRect): Promise<string> {
       throw new Error('截图文件未生成')
     }
 
+    // 检测是否截到了黑屏（权限未授权的典型表现）
+    const stats = fs.statSync(outputPath)
+    if (stats.size < 1024) {
+      // 小于 1KB 几乎可以确定是全黑图片
+      fs.unlinkSync(outputPath) // 删除黑屏文件
+      throw new Error('SCREEN_RECORDING_PERMISSION_DENIED')
+    }
+
     return outputPath
   } catch (error) {
+    if (error instanceof Error && error.message === 'SCREEN_RECORDING_PERMISSION_DENIED') {
+      throw error
+    }
     console.error('截图失败:', error)
     throw new Error(`截图失败: ${error instanceof Error ? error.message : String(error)}`)
   }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, systemPreferences, dialog, screen, ipcMain, Notification, clipboard, shell } from 'electron'
+import { app, BrowserWindow, globalShortcut, systemPreferences, dialog, screen, ipcMain, Notification, clipboard, shell, desktopCapturer } from 'electron'
 import path from 'path'
 import { DEFAULT_SHORTCUT } from './constants'
 import { createOverlayWindow, closeOverlayWindow } from './overlay-window'
@@ -52,8 +52,33 @@ async function showPermissionDialog() {
   }
 }
 
+async function triggerScreenCapturePermission() {
+  // 使用 desktopCapturer 触发 macOS 真正的屏幕录制权限弹窗
+  // 这是唯一能可靠触发系统弹窗的方式
+  try {
+    await desktopCapturer.getSources({ types: ['screen'] })
+  } catch {
+    // 如果用户拒绝，getSources 会抛错，我们在上层处理
+  }
+}
+
+async function requestScreenCapturePermission(): Promise<boolean> {
+  if (process.platform !== 'darwin') return true
+
+  // 先检测是否已有权限
+  if (checkScreenCapturePermission()) {
+    return true
+  }
+
+  // 尝试触发系统权限弹窗
+  await triggerScreenCapturePermission()
+
+  // 再次检测
+  return checkScreenCapturePermission()
+}
+
 async function startScreenshot() {
-  const hasPermission = checkScreenCapturePermission()
+  const hasPermission = await requestScreenCapturePermission()
   if (!hasPermission) {
     showPermissionDialog()
     return
@@ -67,8 +92,19 @@ async function startScreenshot() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createMainWindow()
+
+  // 首次启动时预触发权限检测（静默，不弹窗打扰用户）
+  if (process.platform === 'darwin') {
+    const hasPermission = checkScreenCapturePermission()
+    if (!hasPermission) {
+      // 延迟一点再触发，等主窗口完全加载后
+      setTimeout(() => {
+        triggerScreenCapturePermission()
+      }, 2000)
+    }
+  }
 
   // 注册全局快捷键
   const registered = globalShortcut.register(DEFAULT_SHORTCUT, () => {
@@ -125,6 +161,15 @@ ipcMain.on('overlay:selection', async (_event, rect: { x: number; y: number; wid
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
+
+    if (errorMsg === 'SCREEN_RECORDING_PERMISSION_DENIED') {
+      showPermissionDialog()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('screenshot:result', { success: false, error: '屏幕录制权限未授权，请在系统设置中开启后重启应用。' })
+      }
+      return
+    }
+
     console.error('截图保存失败:', errorMsg)
 
     new Notification({
